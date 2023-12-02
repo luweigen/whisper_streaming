@@ -4,6 +4,9 @@ import numpy as np
 import librosa  
 from functools import lru_cache
 import time
+from colorama import Fore, Back, Style
+import colorama
+from cuda_check import *
 
 
 
@@ -97,7 +100,7 @@ class FasterWhisperASR(ASRBase):
     def load_model(self, modelsize=None, cache_dir=None, model_dir=None):
         from faster_whisper import WhisperModel
         if model_dir is not None:
-            print(f"Loading whisper model from model_dir {model_dir}. modelsize and cache_dir parameters are not used.",file=self.logfile)
+            print(f"{Fore.BLUE}Loading whisper model from model_dir {model_dir}. modelsize and cache_dir parameters are not used.{Style.RESET_ALL}",file=sys.stderr)
             model_size_or_path = model_dir
         elif modelsize is not None:
             model_size_or_path = modelsize
@@ -105,8 +108,10 @@ class FasterWhisperASR(ASRBase):
             raise ValueError("modelsize or model_dir parameter must be set")
 
 
+        info = CUDAInfo()
+
         # this worked fast and reliably on NVIDIA L40
-        model = WhisperModel(model_size_or_path, device="cuda", compute_type="float16", download_root=cache_dir)
+        model = WhisperModel(model_size_or_path, device="cuda", compute_type="float16" if info.compute_capability_major>=7 else "float32", download_root=cache_dir)
 
         # or run on GPU with INT8
         # tested: the transcripts were different, probably worse than with FP16, and it was slightly (appx 20%) slower
@@ -173,9 +178,9 @@ class HypothesisBuffer:
                         c = " ".join([self.commited_in_buffer[-j][2] for j in range(1,i+1)][::-1])
                         tail = " ".join(self.new[j-1][2] for j in range(1,i+1))
                         if c == tail:
-                            print("removing last",i,"words:",file=self.logfile)
+                            print(f"\t\t{Fore.BLUE}removing last",i,f"words:{Style.RESET_ALL}",file=self.logfile)
                             for j in range(i):
-                                print("\t",self.new.pop(0),file=self.logfile)
+                                print(f"\t\t{Fore.BLUE}{self.new.pop(0)}{Style.RESET_ALL}",file=self.logfile)
                             break
 
     def flush(self):
@@ -222,6 +227,8 @@ class OnlineASRProcessor:
         self.logfile = logfile
 
         self.init()
+        
+        colorama.init()
 
     def init(self):
         """run this when starting or restarting processing"""
@@ -230,6 +237,7 @@ class OnlineASRProcessor:
 
         self.transcript_buffer = HypothesisBuffer(logfile=self.logfile)
         self.commited = []
+        self.chunked_commited = []
         self.last_chunked_at = 0
 
         self.silence_iters = 0
@@ -241,11 +249,12 @@ class OnlineASRProcessor:
         """Returns a tuple: (prompt, context), where "prompt" is a 200-character suffix of commited text that is inside of the scrolled away part of audio buffer. 
         "context" is the commited text that is inside the audio buffer. It is transcribed again and skipped. It is returned only for debugging and logging reasons.
         """
-        k = max(0,len(self.commited)-1)
-        while k > 0 and self.commited[k-1][1] > self.last_chunked_at:
-            k -= 1
+        #k = max(0,len(self.commited)-1)
+        #while k > 0 and self.commited[k-1][1] > self.last_chunked_at:
+        #    k -= 1
 
-        p = self.commited[:k]
+        #p = self.commited[:k]
+        p = self.chunked_commited
         p = [t for _,_,t in p]
         prompt = []
         l = 0
@@ -253,7 +262,10 @@ class OnlineASRProcessor:
             x = p.pop(-1)
             l += len(x)+1
             prompt.append(x)
-        non_prompt = self.commited[k:]
+        #non_prompt = self.commited[k:]
+        non_prompt = self.commited
+        while len(self.chunked_commited)>200:#enough for making 200-char prompt
+            self.chunked_commited.pop(0)
         return self.asr.sep.join(prompt[::-1]), self.asr.sep.join(t for _,_,t in non_prompt)
 
     def process_iter(self):
@@ -263,19 +275,25 @@ class OnlineASRProcessor:
         """
 
         prompt, non_prompt = self.prompt()
-        print("PROMPT:", prompt, file=self.logfile)
-        print("CONTEXT:", non_prompt, file=self.logfile)
-        print(f"transcribing {len(self.audio_buffer)/self.SAMPLING_RATE:2.2f} seconds from {self.buffer_time_offset:2.2f}",file=self.logfile)
+        print(f"{Fore.BLUE}PROMPT: {prompt}{Style.RESET_ALL}", file=self.logfile)
+        #print("CONTEXT:", non_prompt, file=self.logfile)
+        print(f"{Fore.BLUE}transcribing {Back.YELLOW}{len(self.audio_buffer)/self.SAMPLING_RATE:2.2f}s{Back.RESET} from {self.buffer_time_offset:2.2f}{Style.RESET_ALL}",file=self.logfile)
+        tt = time.time()
         res = self.asr.transcribe(self.audio_buffer, init_prompt=prompt)
+        tt = time.time() - tt
 
         # transform to [(beg,end,"word1"), ...]
         tsw = self.asr.ts_words(res)
 
+        print(f"{Fore.BLUE}{Back.YELLOW}{tt:2.2f}s{Back.RESET} transcribe()→{Fore.YELLOW}transcript_buffer.new{Style.RESET_ALL}", " ".join([w for _, _, w in tsw]),file=self.logfile)
+
         self.transcript_buffer.insert(tsw, self.buffer_time_offset)
         o = self.transcript_buffer.flush()
+        print(f"{Fore.YELLOW}o=transcript_buffer.flush(new vs buffer){Style.RESET_ALL}", " ".join([w for _, _, w in o]),file=self.logfile)
         self.commited.extend(o)
-        print(">>>>COMPLETE NOW:",self.to_flush(o),file=self.logfile,flush=True)
-        print("INCOMPLETE:",self.to_flush(self.transcript_buffer.complete()),file=self.logfile,flush=True)
+        #print(">>>>COMPLETE NOW:",self.to_flush(o),file=self.logfile,flush=True)
+        #print("INCOMPLETE:",self.to_flush(self.transcript_buffer.complete()),file=self.logfile,flush=True)
+        print(f"{Fore.YELLOW}transcript_buffer.buffer:{Style.RESET_ALL}",self.to_flush(self.transcript_buffer.complete()),file=self.logfile,flush=True)
 
         # there is a newly confirmed text
         if o:
@@ -317,15 +335,16 @@ class OnlineASRProcessor:
             #while k>0 and self.commited[k][1] > l:
             #    k -= 1
             #t = self.commited[k][1] 
-            print(f"chunking because of len",file=self.logfile)
+            print(f"{Fore.BLUE}chunking because of len{Style.RESET_ALL}",file=self.logfile)
             #self.chunk_at(t)
 
-        print(f"len of buffer now: {len(self.audio_buffer)/self.SAMPLING_RATE:2.2f}",file=self.logfile)
+        print(f"{Fore.BLUE}len of buffer now: {len(self.audio_buffer)/self.SAMPLING_RATE:2.2f}{Style.RESET_ALL}",file=self.logfile)
         return self.to_flush(o)
 
     def chunk_completed_sentence(self):
         if self.commited == []: return
-        print(self.commited,file=self.logfile)
+        #print(self.commited,file=self.logfile)
+        print(f"{Fore.BLUE}\t\tchunk_completed_sentence in commited:",self.asr.sep.join([w for _, _, w in self.commited]),file=self.logfile)
         sents = self.words_to_sentences(self.commited)
         for s in sents:
             print("\t\tSENT:",s,file=self.logfile)
@@ -336,7 +355,7 @@ class OnlineASRProcessor:
         # we will continue with audio processing at this timestamp
         chunk_at = sents[-2][1]
 
-        print(f"--- sentence chunked at {chunk_at:2.2f}",file=self.logfile)
+        print(f"--- sentence chunked at {chunk_at:2.2f}{Style.RESET_ALL}",file=self.logfile)
         self.chunk_at(chunk_at)
 
     def chunk_completed_segment(self, res):
@@ -353,12 +372,12 @@ class OnlineASRProcessor:
                 ends.pop(-1)
                 e = ends[-2]+self.buffer_time_offset
             if e <= t:
-                print(f"--- segment chunked at {e:2.2f}",file=self.logfile)
+                print(f"{Fore.BLUE}--- segment chunked at {e:2.2f}{Style.RESET_ALL}",file=self.logfile)
                 self.chunk_at(e)
             else:
-                print(f"--- last segment not within commited area",file=self.logfile)
+                print(f"{Fore.BLUE}--- last segment not within commited area{Style.RESET_ALL}",file=self.logfile)
         else:
-            print(f"--- not enough segments to chunk",file=self.logfile)
+            print(f"{Fore.BLUE}--- not enough segments to chunk{Style.RESET_ALL}",file=self.logfile)
 
 
 
@@ -368,6 +387,8 @@ class OnlineASRProcessor:
         """trims the hypothesis and audio buffer at "time"
         """
         self.transcript_buffer.pop_commited(time)
+        while self.commited and self.commited[0][1] <= time:
+            self.chunked_commited.append(self.commited.pop(0))
         cut_seconds = time - self.buffer_time_offset
         self.audio_buffer = self.audio_buffer[int(cut_seconds)*self.SAMPLING_RATE:]
         self.buffer_time_offset = time
@@ -445,7 +466,7 @@ def create_tokenizer(lan):
 
     # the following languages are in Whisper, but not in wtpsplit:
     if lan in "as ba bo br bs fo haw hr ht jw lb ln lo mi nn oc sa sd sn so su sw tk tl tt".split():
-        print(f"{lan} code is not supported by wtpsplit. Going to use None lang_code option.", file=sys.stderr)
+        print(f"{lan} code is not supported by wtpsplit. Going to use None lang_code option.", file=self.logfile)
         lan = None
 
     from wtpsplit import WtP
