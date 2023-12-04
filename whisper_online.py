@@ -7,7 +7,6 @@ import time
 from colorama import Fore, Back, Style
 import colorama
 from cuda_check import *
-import torch
 
 
 @lru_cache
@@ -156,6 +155,7 @@ class WhisperPipelineASR(ASRBase):
     sep = ""
 
     def load_model(self, modelsize=None, cache_dir=None, model_dir=None):
+        import torch
         from transformers import pipeline
         info = CUDAInfo()
 
@@ -344,7 +344,7 @@ class OnlineASRProcessor:
         tt = time.time() - tt
         sr = tt/(len(self.audio_buffer)/self.SAMPLING_RATE)
 
-        print(f"{Fore.BLUE}{Back.YELLOW}{tt:2.2f}s{Back.WHITE}/len={sr:2.3f}{Back.RESET} transcribe()→{Fore.YELLOW}transcript_buffer.new{Style.RESET_ALL}", " ".join([w for _, _, w in tsw]),file=self.logfile)
+        print(f"{Fore.BLUE}{Back.YELLOW}{tt:2.2f}s{Back.WHITE}/dur={sr:2.3f}{Back.RESET} transcribe()→{Fore.YELLOW}transcript_buffer.new{Style.RESET_ALL}", " ".join([w for _, _, w in tsw]),file=self.logfile)
 
         self.transcript_buffer.insert(tsw, self.buffer_time_offset)
         o = self.transcript_buffer.flush()
