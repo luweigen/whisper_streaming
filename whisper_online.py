@@ -7,7 +7,7 @@ import time
 from colorama import Fore, Back, Style
 import colorama
 from cuda_check import *
-
+import torch
 
 
 @lru_cache
@@ -146,7 +146,65 @@ class FasterWhisperASR(ASRBase):
     def set_translate_task(self):
         self.transcribe_kargs["task"] = "translate"
 
+#pip install git+https://github.com/huggingface/transformers.git openai-whisper torch accelerate optimum
+#   ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+#   faster-whisper 0.9.0 requires tokenizers<0.15,>=0.13, but you have tokenizers 0.15.0 which is incompatible.
+#   pip install --upgrade faster-whisper
+#pip install flash-attn --no-build-isolation
+class WhisperPipelineASR(ASRBase):
 
+    sep = ""
+
+    def load_model(self, modelsize=None, cache_dir=None, model_dir=None):
+        from transformers import pipeline
+        info = CUDAInfo()
+
+        # Initialize the ASR pipeline
+        pipe = pipeline("automatic-speech-recognition",
+                        model=modelsize,
+                        device="cuda:0",
+                        torch_dtype=torch.float16 if info.compute_capability_major>=7 else torch.float32,
+                        model_kwargs={"use_flash_attention_2": info.compute_capability_major>=8})
+
+        if info.compute_capability_major==7 or info.compute_capability_major==6:
+            pipe.model = pipe.model.to_bettertransformer()
+
+        if self.original_language:
+            self.transcribe_kargs["language"]=self.original_language
+
+        return pipe
+
+    def transcribe(self, audio, init_prompt=""):
+        outputs = self.model(audio, chunk_length_s=30, batch_size=1, generate_kwargs=self.transcribe_kargs, return_timestamps="word")  #for Word-level timestamps batch-size must be 1. https://huggingface.co/openai/whisper-large-v3/discussions/12
+        #{'text': ' So as you guys...', 'chunks': [{'text': ' So', 'timestamp': (0.0, 0.64)}, {'text': ' as', 'timestamp': (0.64, 1.02)},...]}
+        segments = outputs['chunks']
+        prev = 0.0
+        def valid_sec(seconds):
+            if not(isinstance(seconds, int) or isinstance(seconds, float)):
+                seconds = prev
+            else:
+                prev = seconds
+            return seconds
+        for segment in segments:
+            segment['timestamp']=(valid_sec(segment['timestamp'][0]),valid_sec(segment['timestamp'][1]))
+        return segments
+
+    def ts_words(self, segments):
+        o = []
+        for segment in segments:
+            t = (segment['timestamp'][0], segment['timestamp'][1], segment['text'])
+            o.append(t)
+        return o
+
+    def segments_end_ts(self, res):
+        return [s['timestamp'][1] for s in res]
+
+    def use_vad(self):
+        #Not implemented yet
+        return None
+
+    def set_translate_task(self):
+        self.transcribe_kargs["task"] = "translate"
 
 class HypothesisBuffer:
 
@@ -280,12 +338,13 @@ class OnlineASRProcessor:
         print(f"{Fore.BLUE}transcribing {Back.YELLOW}{len(self.audio_buffer)/self.SAMPLING_RATE:2.2f}s{Back.RESET} from {self.buffer_time_offset:2.2f}{Style.RESET_ALL}",file=self.logfile)
         tt = time.time()
         res = self.asr.transcribe(self.audio_buffer, init_prompt=prompt)
-        tt = time.time() - tt
 
         # transform to [(beg,end,"word1"), ...]
         tsw = self.asr.ts_words(res)
+        tt = time.time() - tt
+        sr = tt/(len(self.audio_buffer)/self.SAMPLING_RATE)
 
-        print(f"{Fore.BLUE}{Back.YELLOW}{tt:2.2f}s{Back.RESET} transcribe()→{Fore.YELLOW}transcript_buffer.new{Style.RESET_ALL}", " ".join([w for _, _, w in tsw]),file=self.logfile)
+        print(f"{Fore.BLUE}{Back.YELLOW}{tt:2.2f}s{Back.WHITE}/len={sr:2.3f}{Back.RESET} transcribe()→{Fore.YELLOW}transcript_buffer.new{Style.RESET_ALL}", " ".join([w for _, _, w in tsw]),file=self.logfile)
 
         self.transcript_buffer.insert(tsw, self.buffer_time_offset)
         o = self.transcript_buffer.flush()
@@ -488,13 +547,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('audio_path', type=str, help="Filename of 16kHz mono channel wav, on which live streaming is simulated.")
     parser.add_argument('--min-chunk-size', type=float, default=1.0, help='Minimum audio chunk size in seconds. It waits up to this time to do processing. If the processing takes shorter time, it waits, otherwise it processes the whole segment that was received by this time.')
-    parser.add_argument('--model', type=str, default='large-v2', choices="tiny.en,tiny,base.en,base,small.en,small,medium.en,medium,large-v1,large-v2,large".split(","),help="Name size of the Whisper model to use (default: large-v2). The model is automatically downloaded from the model hub if not present in model cache dir.")
+    parser.add_argument('--model', type=str, default='large-v2', choices="tiny.en,tiny,base.en,base,small.en,small,medium.en,medium,large-v1,large-v2,large,large-v3".split(","),help="Name size of the Whisper model to use (default: large-v3). The model is automatically downloaded from the model hub if not present in model cache dir.")
     parser.add_argument('--model_cache_dir', type=str, default=None, help="Overriding the default model cache dir where models downloaded from the hub are saved")
     parser.add_argument('--model_dir', type=str, default=None, help="Dir where Whisper model.bin and other files are saved. This option overrides --model and --model_cache_dir parameter.")
     parser.add_argument('--lan', '--language', type=str, default='en', help="Language code for transcription, e.g. en,de,cs.")
     parser.add_argument('--task', type=str, default='transcribe', choices=["transcribe","translate"],help="Transcribe or translate.")
     parser.add_argument('--start_at', type=float, default=0.0, help='Start processing audio at this time.')
-    parser.add_argument('--backend', type=str, default="faster-whisper", choices=["faster-whisper", "whisper_timestamped"],help='Load only this backend for Whisper processing.')
+    parser.add_argument('--backend', type=str, default="faster-whisper", choices=["hf-pipeline","faster-whisper", "whisper_timestamped"],help='Load only this backend for Whisper processing.')
     parser.add_argument('--offline', action="store_true", default=False, help='Offline mode.')
     parser.add_argument('--comp_unaware', action="store_true", default=False, help='Computationally unaware simulation.')
     parser.add_argument('--vad', action="store_true", default=False, help='Use VAD = voice activity detection, with the default parameters.')
@@ -521,6 +580,9 @@ if __name__ == "__main__":
 
     if args.backend == "faster-whisper":
         asr_cls = FasterWhisperASR
+    elif args.backend == "hf-pipeline":
+        size = "openai/whisper-"+size
+        asr_cls = WhisperPipelineASR
     else:
         asr_cls = WhisperTimestampedASR
 

@@ -17,12 +17,12 @@ parser.add_argument("--port", type=int, default=43007)
 # TODO: code repetition
 
 parser.add_argument('--min-chunk-size', type=float, default=1.0, help='Minimum audio chunk size in seconds. It waits up to this time to do processing. If the processing takes shorter time, it waits, otherwise it processes the whole segment that was received by this time.')
-parser.add_argument('--model', type=str, default='large-v2', choices="tiny.en,tiny,base.en,base,small.en,small,medium.en,medium,large-v1,large-v2,large".split(","),help="Name size of the Whisper model to use (default: large-v2). The model is automatically downloaded from the model hub if not present in model cache dir.")
+parser.add_argument('--model', type=str, default='large-v2', choices="tiny.en,tiny,base.en,base,small.en,small,medium.en,medium,large-v1,large-v2,large,large-v3".split(","),help="Name size of the Whisper model to use (default: large-v3). The model is automatically downloaded from the model hub if not present in model cache dir.")
 parser.add_argument('--model_cache_dir', type=str, default=None, help="Overriding the default model cache dir where models downloaded from the hub are saved")
 parser.add_argument('--model_dir', type=str, default=None, help="Dir where Whisper model.bin and other files are saved. This option overrides --model and --model_cache_dir parameter.")
 parser.add_argument('--lan', '--language', type=str, default='en', help="Language code for transcription, e.g. en,de,cs.")
 parser.add_argument('--task', type=str, default='transcribe', choices=["transcribe","translate"],help="Transcribe or translate.")
-parser.add_argument('--backend', type=str, default="faster-whisper", choices=["faster-whisper", "whisper_timestamped"],help='Load only this backend for Whisper processing.')
+parser.add_argument('--backend', type=str, default="faster-whisper", choices=["hf-pipeline","faster-whisper", "whisper_timestamped"],help='Load only this backend for Whisper processing.')
 parser.add_argument('--vad', action="store_true", default=False, help='Use VAD = voice activity detection, with the default parameters.')
 args = parser.parse_args()
 
@@ -40,6 +40,9 @@ print(f"Loading Whisper {size} model for {language}...",file=sys.stderr,end=" ",
 if args.backend == "faster-whisper":
     from faster_whisper import WhisperModel
     asr_cls = FasterWhisperASR
+elif args.backend == "hf-pipeline":
+    size = "openai/whisper-"+size
+    asr_cls = WhisperPipelineASR
 else:
     import whisper
     import whisper_timestamped
