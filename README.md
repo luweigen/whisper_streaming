@@ -1,5 +1,6 @@
-# whisper_streaming
+# Enhanced whisper_streaming
 Whisper realtime streaming for long speech-to-text transcription and translation
+based on [whisper_streaming](https://github.com/ufal/whisper_streaming)
 
 **Turning Whisper into Real-Time Transcription System**
 
@@ -31,13 +32,27 @@ Please, cite us. [Bibtex citation](http://www.afnlp.org/conferences/ijcnlp2023/p
 
 ## Installation
 
-1) ``pip install librosa`` -- audio processing library
+1) Dependencies
 
-2) Whisper backend.
+``pip install librosa`` -- audio processing library
 
-Two alternative backends are integrated. The most recommended one is [faster-whisper](https://github.com/guillaumekln/faster-whisper) with GPU support. Follow their instructions for NVIDIA libraries -- we succeeded with CUDNN 8.5.0 and CUDA 11.7. Install with `pip install faster-whisper`.
+``pip install colorama`` -- for producing colored terminal text
 
-Alternative, less restrictive, but slower backend is [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped): `pip install git+https://github.com/linto-ai/whisper-timestamped`
+2) Whisper backends.
+
+Three alternative backends are integrated. 
+
+The most recommended one is [faster-whisper](https://github.com/guillaumekln/faster-whisper) with GPU support. Follow their instructions for NVIDIA libraries -- we succeeded with CUDNN 8.5.0 and CUDA 11.7. Install with:
+
+`pip install faster-whisper`
+
+Alternative backend is the [🤗automatic-speech-recognition pipeline with whisper](https://github.com/Vaibhavs10/insanely-fast-whisper). Install with:
+
+`pip install git+https://github.com/huggingface/transformers.git openai-whisper torch accelerate optimum`
+
+`pip install flash-attn --no-build-isolation`  --  using flash attention 2 for Ampere, Ada, or Hopper GPUs (e.g., A100, RTX 3090, RTX 4090, H100).
+
+Less restrictive, but slowest backend is [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped): `pip install git+https://github.com/linto-ai/whisper-timestamped`
 
 The backend is loaded only when chosen. The unused one does not have to be installed.
 
@@ -71,8 +86,8 @@ options:
   -h, --help            show this help message and exit
   --min-chunk-size MIN_CHUNK_SIZE
                         Minimum audio chunk size in seconds. It waits up to this time to do processing. If the processing takes shorter time, it waits, otherwise it processes the whole segment that was received by this time.
-  --model {tiny.en,tiny,base.en,base,small.en,small,medium.en,medium,large-v1,large-v2,large}
-                        Name size of the Whisper model to use (default: large-v2). The model is automatically downloaded from the model hub if not present in model cache dir.
+  --model {tiny.en,tiny,base.en,base,small.en,small,medium.en,medium,large-v1,large-v2,large,large-v3}
+                        Name size of the Whisper model to use (default: large-v3). The model is automatically downloaded from the model hub if not present in model cache dir.
   --model_cache_dir MODEL_CACHE_DIR
                         Overriding the default model cache dir where models downloaded from the hub are saved
   --model_dir MODEL_DIR
@@ -82,7 +97,7 @@ options:
   --task {transcribe,translate}
                         Transcribe or translate.
   --start_at START_AT   Start processing audio at this time.
-  --backend {faster-whisper,whisper_timestamped}
+  --backend {hf-pipeline,faster-whisper,whisper_timestamped}
                         Load only this backend for Whisper processing.
   --offline             Offline mode.
   --comp_unaware        Computationally unaware simulation.
