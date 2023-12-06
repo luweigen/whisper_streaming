@@ -1,0 +1,40 @@
+CPU
+
+0.298s Das macht es viel einfacher, zu bauen
+0.154s Dieser Art von Chinesen
+0.112s Anwendung der Chinesen
+0.309s Wenn sie auf den Link klicken, wird der Browser in die rechte Sektion gehen und
+t5-small mean=0.218
+
+0.229s 使建造起来更加容易得多
+12.854s 像这样的.............................................................................................................................,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+0.119s 应用应用
+0.653s 当他们单击链接时,浏览器将转到右部分,这是非常有价值的部分,然后第二个部分是各部分, 通常会给出正确的第一点
+Helsinki-NLP/opus-mt-en-zh mean=3.464
+
+0.254s Das macht es viel einfacher, zu bauen
+0.138s Dieser Art von Chinesen
+0.107s Anwendung der Chinesen
+0.343s Wenn sie auf den Link klicken, wird der Browser in die rechte Sektion gehen und
+t5-small mean=0.210
+/home/luwei/ASR/whisper_streaming/venv/lib/python3.10/site-packages/transformers/models/marian/tokenization_marian.py:197: UserWarning: Recommended: pip install sacremoses.
+  warnings.warn("Recommended: pip install sacremoses.")
+0.262s 使建造起来更加容易得多
+14.210s 像这样的.............................................................................................................................,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+0.122s 应用应用
+0.677s 当他们单击链接时,浏览器将转到右部分,这是非常有价值的部分,然后第二个部分是各部分, 通常会给出正确的第一点
+Helsinki-NLP/opus-mt-en-zh mean=3.818
+
+GTX 1070
+
+0.105s Das macht es viel einfacher, zu bauen
+0.057s Dieser Art von Chinesen
+0.042s Anwendung der Chinesen
+0.157s Wenn sie auf den Link klicken, wird der Browser in die rechte Sektion gehen und
+t5-small mean=0.090
+
+0.083s 使建造起来更加容易得多
+3.456s 像这样的.............................................................................................................................,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+0.047s 应用应用
+0.230s 当他们单击链接时,浏览器将转到右部分,这是非常有价值的部分,然后第二个部分是各部分, 通常会给出正确的第一点
+Helsinki-NLP/opus-mt-en-zh mean=0.954

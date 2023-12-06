@@ -1,0 +1,51 @@
+3.793s English:'that makes it much easier to build'. 翻译成中文: '这样做会让它变得更容易建造'.
+
+## 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+2.279s English:'this kind of'. 翻译成中文: 这种.
+
+## 1. 这种
+
+### 1.1 这种
+
+这种是一个形
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+2.198s English:'application'. 翻译成中文: '应用'.
+
+## 1. 概述
+
+在本教程中，我们将介绍如何使
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+13.305s English:'when they click the link the browser will go to the right section and that's very valuable and then the second one is the sections often give the right first idea of where'. 翻译成中文: '当他们点击链接时，浏览器将会跳转到正确的部分，这对于用户来说非常有价值，然后第二个是，部分通常会给用户第一个想法，让他们知道他们想要的内容在哪里。'
+
+## 1.1. 如何使用
+
+### 1.1.1. 在页面中使用
+
+在页面中使用时，需要在页面中添加一个 `<a>` 标签，并且添加 `href` 属性，并且 `href` 属性的值为 `#section-id` ，其中 `section-id` 为要跳转的 `section` 的 `id` 。
+
+```
+mean=5.394
+
+3.162s English:'that makes it much easier to build'. 翻译成中文: '这样做会让它变得更容易建造'.
+
+## 10. 10. 10. 10. 10. 10. 10. 10. 1
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+1.927s English:'this kind of'. 翻译成中文: 这种.
+
+## 1. 这种
+
+### 1.1 这种
+
+#### 1.1
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+1.852s English:'application'. 翻译成中文: '应用'.
+
+## 1. 概述
+
+> 原文: [What is an application?](https://
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+11.115s English:'when they click the link the browser will go to the right section and that's very valuable and then the second one is the sections often give the right first idea of where'. 翻译成中文: '当他们点击链接时，浏览器将会跳转到正确的部分，这对于用户来说非常有价值，然后第二个是，部分通常会给用户第一次的正确的想法。'
+
+## 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1.1. 1.1
+mean=4.514

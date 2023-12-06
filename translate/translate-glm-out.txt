@@ -1,0 +1,5 @@
+1.142s [CLS] English:'that makes it much easier to build'. 翻译成中文是: [MASK] <|endoftext|> <|startofpiece|> 这使建造房屋变得容易多了。 <|endofpiece|>
+0.097s [CLS] English:'this kind of'. 翻译成中文是: [MASK] <|endoftext|> <|startofpiece|> 这该死的! <|endofpiece|>
+0.064s [CLS] English:'application'. 翻译成中文是: [MASK] <|endoftext|> <|startofpiece|> 申请。 <|endofpiece|>
+0.253s [CLS] English:'when they click the link the browser will go to the right section and that's very valuable and then the second one is the sections often give the right first idea of where'. 翻译成中文是: [MASK] <|endoftext|> <|startofpiece|> 当他们点击链接时,自行车会到达正确的位置。 <|endofpiece|>
+THUDM/glm-large-chinese mean=0.389
