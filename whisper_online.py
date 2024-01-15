@@ -275,9 +275,11 @@ class OnlineASRProcessor:
 
     SAMPLING_RATE = 16000
 
-    def __init__(self, asr, tokenizer, logfile=sys.stderr):
+    def __init__(self, asr, tokenizer=None, buffer_trimming=("segment", 15), logfile=sys.stderr):
         """asr: WhisperASR object
-        tokenizer: sentence tokenizer object for the target language. Must have a method *split* that behaves like the one of MosesTokenizer.
+        tokenizer: sentence tokenizer object for the target language. Must have a method *split* that behaves like the one of MosesTokenizer. It can be None, if "segment" buffer trimming option is used, then tokenizer is not used at all.
+        ("segment", 15)
+        buffer_trimming: a pair of (option, seconds), where option is either "sentence" or "segment", and seconds is a number. Buffer is trimmed if it is longer than "seconds" threshold. Default is the most recommended option.
         logfile: where to store the log. 
         """
         self.asr = asr
@@ -287,6 +289,8 @@ class OnlineASRProcessor:
         self.init()
         
         colorama.init()
+
+        self.buffer_trimming_way, self.buffer_trimming_sec = buffer_trimming
 
     def init(self):
         """run this when starting or restarting processing"""
@@ -355,36 +359,18 @@ class OnlineASRProcessor:
         print(f"{Fore.YELLOW}transcript_buffer.buffer:{Style.RESET_ALL}",self.to_flush(self.transcript_buffer.complete()),file=self.logfile,flush=True)
 
         # there is a newly confirmed text
-        if o:
-            # we trim all the completed sentences from the audio buffer
-            self.chunk_completed_sentence()
 
-            # ...segments could be considered
-            #self.chunk_completed_segment(res)
+        if o and self.buffer_trimming_way == "sentence":  # trim the completed sentences
+            if len(self.audio_buffer)/self.SAMPLING_RATE > self.buffer_trimming_sec:  # longer than this
+                self.chunk_completed_sentence()
 
-            # 
-#            self.silence_iters = 0
-
-         # this was an attempt to trim silence/non-linguistic noise detected by the fact that Whisper doesn't transcribe anything for 3-times in a row.
-         # It seemed not working better, or needs to be debugged.
-
-#        elif self.transcript_buffer.complete():
-#            self.silence_iters = 0
-#        elif not self.transcript_buffer.complete():
-#        #    print("NOT COMPLETE:",to_flush(self.transcript_buffer.complete()),file=self.logfile,flush=True)
-#            self.silence_iters += 1
-#            if self.silence_iters >= 3:
-#                n = self.last_chunked_at
-##                self.chunk_completed_sentence()
-##                if n == self.last_chunked_at:
-#                self.chunk_at(self.last_chunked_at+self.chunk)
-#                print(f"\tCHUNK: 3-times silence! chunk_at {n}+{self.chunk}",file=self.logfile)
-##                self.silence_iters = 0
-
-
-        # if the audio buffer is longer than 30s, trim it...
-        if len(self.audio_buffer)/self.SAMPLING_RATE > 30:
-            # ...on the last completed segment (labeled by Whisper)
+        
+        if self.buffer_trimming_way == "segment":
+            s = self.buffer_trimming_sec  # trim the completed segments longer than s,
+        else:
+            s = 30 # if the audio buffer is longer than 30s, trim it
+        
+        if len(self.audio_buffer)/self.SAMPLING_RATE > s:
             self.chunk_completed_segment(res)
 
             # alternative: on any word
@@ -394,7 +380,7 @@ class OnlineASRProcessor:
             #while k>0 and self.commited[k][1] > l:
             #    k -= 1
             #t = self.commited[k][1] 
-            print(f"{Fore.BLUE}chunking because of len{Style.RESET_ALL}",file=self.logfile)
+            print(f"{Fore.BLUE}chunking segment{Style.RESET_ALL}",file=self.logfile)
             #self.chunk_at(t)
 
         print(f"{Fore.BLUE}len of buffer now: {len(self.audio_buffer)/self.SAMPLING_RATE:2.2f}{Style.RESET_ALL}",file=self.logfile)
@@ -449,7 +435,7 @@ class OnlineASRProcessor:
         while self.commited and self.commited[0][1] <= time:
             self.chunked_commited.append(self.commited.pop(0))
         cut_seconds = time - self.buffer_time_offset
-        self.audio_buffer = self.audio_buffer[int(cut_seconds)*self.SAMPLING_RATE:]
+        self.audio_buffer = self.audio_buffer[int(cut_seconds*self.SAMPLING_RATE):]
         self.buffer_time_offset = time
         self.last_chunked_at = time
 
@@ -537,7 +523,20 @@ def create_tokenizer(lan):
     return WtPtok()
 
 
-
+def add_shared_args(parser):
+    """shared args for simulation (this entry point) and server
+    parser: argparse.ArgumentParser object
+    """
+    parser.add_argument('--min-chunk-size', type=float, default=1.0, help='Minimum audio chunk size in seconds. It waits up to this time to do processing. If the processing takes shorter time, it waits, otherwise it processes the whole segment that was received by this time.')
+    parser.add_argument('--model', type=str, default='large-v3', choices="tiny.en,tiny,base.en,base,small.en,small,medium.en,medium,large-v1,large-v2,large-v3,large".split(","),help="Name size of the Whisper model to use (default: large-v3). The model is automatically downloaded from the model hub if not present in model cache dir.")
+    parser.add_argument('--model_cache_dir', type=str, default=None, help="Overriding the default model cache dir where models downloaded from the hub are saved")
+    parser.add_argument('--model_dir', type=str, default=None, help="Dir where Whisper model.bin and other files are saved. This option overrides --model and --model_cache_dir parameter.")
+    parser.add_argument('--lan', '--language', type=str, default='en', help="Language code for transcription, e.g. en,de,cs.")
+    parser.add_argument('--task', type=str, default='transcribe', choices=["transcribe","translate"],help="Transcribe or translate.")
+    parser.add_argument('--backend', type=str, default="faster-whisper", choices=["hf-pipeline","faster-whisper", "whisper_timestamped"],help='Load only this backend for Whisper processing.')
+    parser.add_argument('--vad', action="store_true", default=False, help='Use VAD = voice activity detection, with the default parameters.')
+    parser.add_argument('--buffer_trimming', type=str, default="sentence", choices=["sentence", "segment"],help='Buffer trimming strategy -- trim completed sentences marked with punctuation mark and detected by sentence segmenter, or the completed segments returned by Whisper. Sentence segmenter must be installed for "sentence" option.')
+    parser.add_argument('--buffer_trimming_sec', type=float, default=15, help='Buffer trimming length threshold in seconds. If buffer length is longer, trimming sentence/segment is triggered.')
 
 ## main:
 
@@ -546,17 +545,11 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('audio_path', type=str, help="Filename of 16kHz mono channel wav, on which live streaming is simulated.")
-    parser.add_argument('--min-chunk-size', type=float, default=1.0, help='Minimum audio chunk size in seconds. It waits up to this time to do processing. If the processing takes shorter time, it waits, otherwise it processes the whole segment that was received by this time.')
-    parser.add_argument('--model', type=str, default='large-v2', choices="tiny.en,tiny,base.en,base,small.en,small,medium.en,medium,large-v1,large-v2,large,large-v3".split(","),help="Name size of the Whisper model to use (default: large-v3). The model is automatically downloaded from the model hub if not present in model cache dir.")
-    parser.add_argument('--model_cache_dir', type=str, default=None, help="Overriding the default model cache dir where models downloaded from the hub are saved")
-    parser.add_argument('--model_dir', type=str, default=None, help="Dir where Whisper model.bin and other files are saved. This option overrides --model and --model_cache_dir parameter.")
-    parser.add_argument('--lan', '--language', type=str, default='en', help="Language code for transcription, e.g. en,de,cs.")
-    parser.add_argument('--task', type=str, default='transcribe', choices=["transcribe","translate"],help="Transcribe or translate.")
+    add_shared_args(parser)
     parser.add_argument('--start_at', type=float, default=0.0, help='Start processing audio at this time.')
-    parser.add_argument('--backend', type=str, default="faster-whisper", choices=["hf-pipeline","faster-whisper", "whisper_timestamped"],help='Load only this backend for Whisper processing.')
     parser.add_argument('--offline', action="store_true", default=False, help='Offline mode.')
     parser.add_argument('--comp_unaware', action="store_true", default=False, help='Computationally unaware simulation.')
-    parser.add_argument('--vad', action="store_true", default=False, help='Use VAD = voice activity detection, with the default parameters.')
+    
     args = parser.parse_args()
 
     # reset to store stderr to different file stream, e.g. open(os.devnull,"w")
@@ -604,7 +597,11 @@ if __name__ == "__main__":
 
     
     min_chunk = args.min_chunk_size
-    online = OnlineASRProcessor(asr,create_tokenizer(tgt_language),logfile=logfile)
+    if args.buffer_trimming == "sentence":
+        tokenizer = create_tokenizer(tgt_language)
+    else:
+        tokenizer = None
+    online = OnlineASRProcessor(asr,tokenizer,logfile=logfile,buffer_trimming=(args.buffer_trimming, args.buffer_trimming_sec))
 
 
     # load the audio into the LRU cache before we start the timer
@@ -657,10 +654,15 @@ if __name__ == "__main__":
 
             print(f"## last processed {end:.2f}s",file=logfile,flush=True)
 
-            beg = end
-            end += min_chunk
             if end >= duration:
                 break
+            
+            beg = end
+            
+            if end + min_chunk > duration:
+                end = duration
+            else:
+                end += min_chunk
         now = duration
 
     else: # online = simultaneous mode
