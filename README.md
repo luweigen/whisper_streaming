@@ -40,19 +40,35 @@ Please, cite us. [Bibtex citation](http://www.afnlp.org/conferences/ijcnlp2023/p
 
 2) Whisper backends.
 
-Three alternative backends are integrated. 
+Four alternative backends are integrated. 
 
-The most recommended one is [faster-whisper](https://github.com/guillaumekln/faster-whisper) with GPU support. Follow their instructions for NVIDIA libraries -- we succeeded with CUDNN 8.5.0 and CUDA 11.7. Install with:
+* The most recommended one is [faster-whisper](https://github.com/guillaumekln/faster-whisper) with GPU support. Follow their instructions for NVIDIA libraries -- we succeeded with CUDNN 8.5.0 and CUDA 11.7. Install with:
 
 `pip install faster-whisper`
 
-Alternative backend is the [🤗automatic-speech-recognition pipeline with whisper](https://github.com/Vaibhavs10/insanely-fast-whisper). Install with:
+* Alternative backend is the [🤗automatic-speech-recognition pipeline with whisper](https://github.com/Vaibhavs10/insanely-fast-whisper). Install with:
 
 `pip install git+https://github.com/huggingface/transformers.git openai-whisper torch accelerate optimum`
 
 `pip install flash-attn --no-build-isolation`  --  using flash attention 2 for Ampere, Ada, or Hopper GPUs (e.g., A100, RTX 3090, RTX 4090, H100).
 
-Less restrictive, but slowest backend is [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped): `pip install git+https://github.com/linto-ai/whisper-timestamped`
+* MLX backend for Apple Silicon devices. Install with:
+
+`pip install mlx`
+
+`pip install huggingface_hub`
+
+`pip install tiktoken==0.3.3`
+
+`git clone https://github.com/ml-explore/mlx-examples.git`
+
+`ln mlx-examples/whisper/whisper ./`
+
+The server and client can be launched with arguments in examples  by `server-mlx-v3.sh` and `client-mac.sh` . To use them the `sox` app should be installed via
+
+`brew install sox`
+
+* Less restrictive, but slowest backend is [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped): `pip install git+https://github.com/linto-ai/whisper-timestamped`
 
 The backend is loaded only when chosen. The unused one does not have to be installed.
 
