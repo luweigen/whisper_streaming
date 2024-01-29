@@ -11,7 +11,8 @@ parser = argparse.ArgumentParser()
 # server options
 parser.add_argument("--host", type=str, default='localhost')
 parser.add_argument("--port", type=int, default=43007)
-
+parser.add_argument("--samplerate", type=int, default=16000, help="source sample rate")
+parser.add_argument("--sampleencoding", type=str, default="PCM_16", help="source sample encoding 'PCM_16, 'PCM_32'")
 
 # options from whisper_online
 add_shared_args(parser)
@@ -34,6 +35,9 @@ if args.backend == "faster-whisper":
 elif args.backend == "hf-pipeline":
     size = "openai/whisper-"+size
     asr_cls = WhisperPipelineASR
+elif args.backend == "mlx-whisper":
+    from mlx_whisper import MLXWhisperASR
+    asr_cls = MLXWhisperASR
 else:
     import whisper
     import whisper_timestamped
@@ -139,7 +143,7 @@ class ServerProcessor:
             #print(f"non_blocking_receive_audio() {len(raw_bytes)} bytes")#raw_bytes[:10])
             if not raw_bytes:
                 break
-            sf = soundfile.SoundFile(io.BytesIO(raw_bytes), channels=1,endian="LITTLE",samplerate=SAMPLING_RATE, subtype="PCM_16",format="RAW")
+            sf = soundfile.SoundFile(io.BytesIO(raw_bytes), channels=1,endian="LITTLE",samplerate=args.samplerate, subtype=args.sampleencoding,format="RAW")
             audio, _ = librosa.load(sf,sr=SAMPLING_RATE)
             out.append(audio)
         if not out:
